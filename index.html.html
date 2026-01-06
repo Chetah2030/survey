@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Анонимный опрос</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    p.subtitle {
+      text-align: center;
+      opacity: 0.85;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    .question {
+      margin-bottom: 24px;
+    }
+    .question label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    select, textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      outline: none;
+      font-size: 14px;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+    .options label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: normal;
+      cursor: pointer;
+    }
+    .options input {
+      margin-right: 8px;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: #ff3c3c;
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .notice {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #ffd966;
+      font-size: 14px;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 12px;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Анонимный опрос</h1>
+    <p class="subtitle">Опрос можно проходить не чаще одного раза в 14 дней</p>
+
+    <div id="notice" class="notice" style="display:none"></div>
+
+    <div class="card" id="surveyCard">
+      <form onsubmit="handleSubmit(event)">
+
+        <div class="question">
+          <label>1. Что бы вы хотели улучшить во взаимодействии со своим руководителем?</label>
+          <textarea name="q1" placeholder="Ваш ответ"></textarea>
+        </div>
+
+        <div class="question">
+          <label>2. Есть ли руководитель, с кем сложно работать? Почему?</label>
+          <textarea name="q2" placeholder="Ваш ответ"></textarea>
+        </div>
+
+        <div class="question">
+          <label>3. Есть ли руководитель, с кем комфортно работать? Почему?</label>
+          <textarea name="q3" placeholder="Ваш ответ"></textarea>
+        </div>
+
+        <div class="question">
+          <label>4. Что вам нравится в питании?</label>
+          <textarea name="q4" placeholder="Ваш ответ"></textarea>
+        </div>
+
+        <div class="question">
+          <label>5. Что вам не нравится в питании и как это можно улучшить?</label>
+          <textarea name="q5" placeholder="Ваш ответ"></textarea>
+        </div>
+
+        <div class="question">
+          <label>6. Какие изменения условий труда важны лично для вас?</label>
+          <textarea name="q6" placeholder="Ваш ответ"></textarea>
+        </div>
+
+        <button type="submit">Отправить опрос</button>
+      </form>
+    </div>
+
+    <div class="footer">Данные не содержат персональной информации</div>
+  </div>
+
+  <script>
+    const PERIOD_DAYS = 14;
+    const STORAGE_KEY = 'survey_last_submit';
+
+    // 🔴 ВСТАВЬТЕ СЮДА URL Google Apps Script
+    const GOOGLE_SCRIPT_URL = 'PASTE_YOUR_SCRIPT_URL_HERE';
+
+    function daysBetween(a, b) {
+      return Math.floor((b - a) / (1000 * 60 * 60 * 24));
+    }
+
+    function lockSurvey(daysLeft) {
+      document.getElementById('surveyCard').classList.add('disabled');
+      const notice = document.getElementById('notice');
+      notice.style.display = 'block';
+      notice.innerText = `Вы уже проходили опрос. Повторно можно через ${daysLeft} дн.`;
+    }
+
+    function handleSubmit(e) {
+      e.preventDefault();
+
+      const form = e.target;
+      const data = {
+        q1: form.q1.value,
+        q2: form.q2.value,
+        q3: form.q3.value,
+        q4: form.q4.value,
+        q5: form.q5.value,
+        q6: form.q6.value,
+        timestamp: new Date().toISOString()
+      };
+
+      fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' }
+      }).then(() => {
+        localStorage.setItem(STORAGE_KEY, Date.now().toString());
+        alert('Спасибо! Ваш анонимный ответ сохранён.');
+        form.reset();
+        checkAndLock();
+      }).catch(() => {
+        alert('Ошибка отправки. Попробуйте позже.');
+      });
+    }
+
+    function checkAndLock() {
+      const last = localStorage.getItem(STORAGE_KEY);
+      if (!last) return;
+
+      const lastDate = new Date(parseInt(last));
+      const now = new Date();
+      const passed = daysBetween(lastDate, now);
+
+      if (passed < PERIOD_DAYS) {
+        lockSurvey(PERIOD_DAYS - passed);
+      }
+    }
+
+    checkAndLock();
+  </script>
+</body>
+</html>
